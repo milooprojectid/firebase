@@ -1,8 +1,8 @@
-import * as functions from 'firebase-functions';
+import * as BuildNotification from './handlers/build_notification';
+import { loadEnv } from './utils/load_env';
 
-// // Start writing Firebase Functions
-// // https://firebase.google.com/docs/functions/typescript
-//
-// export const helloWorld = functions.https.onRequest((request, response) => {
-//  response.send("Hello from Firebase!");
-// });
+loadEnv();
+
+export = {
+    ...BuildNotification
+}
