@@ -4,7 +4,7 @@ import * as humanizeDuration from 'humanize-duration';
 import * as moment from 'moment';
 import { Telegram } from 'telegraf';
 
-export const subscribeTelegram = functions.region('asia-east2').pubsub.topic('cloud-builds').onPublish(async (pubSubEvent, context) => {
+export const cloudBuildNotification = functions.region('asia-east2').pubsub.topic('cloud-builds').onPublish(async (pubSubEvent, context) => {
     const db = admin.firestore();
   
     const configs = await db.collection('configurations').doc('builds');
