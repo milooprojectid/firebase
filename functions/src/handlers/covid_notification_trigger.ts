@@ -1,4 +1,5 @@
 import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
 import axios from 'axios';
 
 import { determineFirestoreAction } from '../utils/helpers';
@@ -15,10 +16,15 @@ interface Covid19Data {
 export const covid19FirestoreOnChange = functions.region('asia-east2').firestore.document(covidDataPath)
     .onWrite(async (change, context) => {
         try {
+            const db = await admin.database();
+
             const { action, data, dataBefore } = determineFirestoreAction<Covid19Data>(change);
             if ((action === ACTION.UPDATE) && (data.confirmed != dataBefore?.confirmed)){
                 await axios.post(process.env.SERVICE_BOT + '/subscription/notify');
             } 
+
+            /** write to realtime database */
+            await db.ref('/covid-19').set(data);
         } catch (err) {
             console.error(err.message);
         }
