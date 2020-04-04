@@ -19,7 +19,7 @@ export const covid19FirestoreOnChange = functions.region('asia-east2').firestore
             const db = await admin.database();
 
             const { action, data, dataBefore } = determineFirestoreAction<Covid19Data>(change);
-            if ((action === ACTION.UPDATE) && (data.confirmed != dataBefore?.confirmed)){
+            if ((action === ACTION.UPDATE) && (data.confirmed !== dataBefore?.confirmed)){
                 await axios.post(process.env.SERVICE_BOT + '/subscription/notify');
             } 
 

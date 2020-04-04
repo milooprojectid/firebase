@@ -27,17 +27,16 @@ export const cloudBuildNotification = functions.region('asia-east2').pubsub.topi
       if (!buildConfig) return;
     
       const TOKEN = String(process.env.TOKEN_TELEGRAM);
-      const GROUP_IDS = buildConfig.groupIds;
-    
       const tg = new Telegram(TOKEN);
-      const build = eventToBuild(pubSubEvent.data);
     
       const message = createTelegramMessage(build);
-      const duration = humanizeDuration(moment(build.finishTime).unix() - moment(build.startTime).unix());
+      const duration = moment(build.finishTime).diff(moment(build.startTime));
+      const humanized = humanizeDuration(duration);
     
-      const description = `${build.substitutions.REPO_NAME} ${message} ${build.status === 'SUCCESS' ? '\nOperation took ' + duration + '.' : ''}`;
+      const description = `${build.substitutions.REPO_NAME} ${message} ${build.status === 'SUCCESS' ? '\nOperation took ' + humanized + '.' : ''}`;
       const logLink = `<a href="${build.logUrl}">Log detail</a>`;
       
+      const GROUP_IDS = buildConfig.groupIds;
       const jobs = GROUP_IDS.map((GROUP_ID: string) => tg.sendMessage(GROUP_ID, `${description}\n${logLink}`, { parse_mode: "HTML" }));
       await Promise.all(jobs);
     }
