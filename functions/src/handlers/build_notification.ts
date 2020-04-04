@@ -4,27 +4,43 @@ import * as humanizeDuration from 'humanize-duration';
 import * as moment from 'moment';
 import { Telegram } from 'telegraf';
 
+const BUILD_STATUS = {
+  SUCCESS: 'SUCCESS',
+  FAILURE: 'FAILURE',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  QUEUED: 'QUEUED',
+  WORKING: 'WORKING',
+  TIMEOUT: 'TIMEOUT',
+  CANCELLED: 'CANCELLED'
+}
+
+const ELIGIBLE_STATUS = [ BUILD_STATUS.SUCCESS, BUILD_STATUS.CANCELLED, BUILD_STATUS.FAILURE ];
+
 export const cloudBuildNotification = functions.region('asia-east2').pubsub.topic('cloud-builds').onPublish(async (pubSubEvent, context) => {
-    const db = admin.firestore();
-  
-    const configs = await db.collection('configurations').doc('builds');
-    const buildConfig = await configs.get().then(doc => doc.exists ? doc.data() : null);
-    if (!buildConfig) return;
-  
-    const TOKEN = String(process.env.TOKEN_TELEGRAM);
-    const GROUP_IDS = buildConfig.groupIds;
-  
-    const tg = new Telegram(TOKEN);
     const build = eventToBuild(pubSubEvent.data);
-  
-    const message = createTelegramMessage(build);
-    const duration = humanizeDuration(moment(build.finishTime).unix() - moment(build.startTime).unix());
-  
-    const description = `${build.substitutions.REPO_NAME} ${message} ${build.status === 'SUCCESS' ? '\nOperation took ' + duration + '.' : ''}`;
-    const logLink = `<a href="${build.logUrl}">Log detail</a>`;
+
+    if (ELIGIBLE_STATUS.includes(build.status)){
+      const db = admin.firestore();
+
+      const configs = await db.collection('configurations').doc('builds');
+      const buildConfig = await configs.get().then(doc => doc.exists ? doc.data() : null);
+      if (!buildConfig) return;
     
-    const jobs = GROUP_IDS.map((GROUP_ID: string) => tg.sendMessage(GROUP_ID, `${description}\n${logLink}`, { parse_mode: "HTML" }));
-    await Promise.all(jobs);
+      const TOKEN = String(process.env.TOKEN_TELEGRAM);
+      const GROUP_IDS = buildConfig.groupIds;
+    
+      const tg = new Telegram(TOKEN);
+      const build = eventToBuild(pubSubEvent.data);
+    
+      const message = createTelegramMessage(build);
+      const duration = humanizeDuration(moment(build.finishTime).unix() - moment(build.startTime).unix());
+    
+      const description = `${build.substitutions.REPO_NAME} ${message} ${build.status === 'SUCCESS' ? '\nOperation took ' + duration + '.' : ''}`;
+      const logLink = `<a href="${build.logUrl}">Log detail</a>`;
+      
+      const jobs = GROUP_IDS.map((GROUP_ID: string) => tg.sendMessage(GROUP_ID, `${description}\n${logLink}`, { parse_mode: "HTML" }));
+      await Promise.all(jobs);
+    }
 });
 
 const eventToBuild = (data: any) => {
@@ -33,20 +49,20 @@ const eventToBuild = (data: any) => {
 
 const createTelegramMessage = (build: any) => {
     switch (build.status) {
-      case 'SUCCESS':
+      case BUILD_STATUS.SUCCESS:
         return "deployed.";
-      case 'FAILURE':
+      case BUILD_STATUS.FAILURE:
         return "build failure.";
-      case 'INTERNAL_ERROR':
+      case BUILD_STATUS.INTERNAL_ERROR:
         return "build has failed. Internal error.";
-      case 'QUEUED':
+      case BUILD_STATUS.QUEUED:
         return "build has been enqueued." ;
-      case 'WORKING':
+      case BUILD_STATUS.WORKING:
         return "build is in progress." ;
-      case 'TIMEOUT':
+      case BUILD_STATUS.TIMEOUT:
         return "build took too long, the build has failed.";
-      case 'CANCELLED':
+      case BUILD_STATUS.CANCELLED:
         return "build has been cancelled.";
     }
-    return "Something is strange, baby.";
+    return "Something is strange baby.";
 }
