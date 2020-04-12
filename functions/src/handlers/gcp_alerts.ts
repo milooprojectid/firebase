@@ -2,7 +2,7 @@ import * as functions from 'firebase-functions';
 import { Telegram } from 'telegraf';
 import * as admin from 'firebase-admin';
 
-export const googleCloudAlert = functions.region('asia-east2').pubsub.topic('cloud-builds').onPublish(async (pubSubEvent, context) => {
+export const googleCloudAlert = functions.region('asia-east2').pubsub.topic('notificationTopic').onPublish(async (pubSubEvent, context) => {
     const db = admin.firestore();
 
     // log into console
