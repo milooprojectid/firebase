@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import * as humanizeDuration from 'humanize-duration';
 import * as moment from 'moment';
-import { Telegram } from 'telegraf';
+import * as axios from 'axios';
 
 const BUILD_STATUS = {
   SUCCESS: 'SUCCESS',
@@ -26,19 +26,37 @@ export const cloudBuildNotification = functions.region('asia-east2').pubsub.topi
       const buildConfig = await configs.get().then(doc => doc.exists ? doc.data() : null);
       if (!buildConfig) return;
     
-      const TOKEN = String(process.env.TOKEN_TELEGRAM);
-      const tg = new Telegram(TOKEN);
-    
-      const message = createTelegramMessage(build);
       const duration = moment(build.finishTime).diff(moment(build.startTime));
-      const humanized = humanizeDuration(duration);
-    
-      const description = `${build.substitutions.REPO_NAME} ${message} ${build.status === 'SUCCESS' ? '\nOperation took ' + humanized + '.' : ''}`;
-      const logLink = `<a href="${build.logUrl}">Log detail</a>`;
+
+      const message = createTelegramMessage(build);
+      const buildTime = humanizeDuration(duration);
+      const repoName = build.substitutions.REPO_NAME;
+      const logLink = build.logUrl;
       
-      const GROUP_IDS = buildConfig.groupIds;
-      const jobs = GROUP_IDS.map((GROUP_ID: string) => tg.sendMessage(GROUP_ID, `${description}\n${logLink}`, { parse_mode: "HTML" }));
-      await Promise.all(jobs);
+      const WebHookUrl = buildConfig.slackWebhook;
+
+      await axios.default.post(WebHookUrl, {
+        fallback: "-",
+        text: message.text,
+        color: message.color,
+        fields: [
+          {
+            title: "Repository",
+            value: repoName,
+            "short": false
+          },
+          {
+            title: "Build Time",
+            value: buildTime,
+            short: false
+          },
+          {
+            title: "Log Detail",
+            value: logLink,
+            short: false
+          }
+        ]
+      })
     }
 });
 
@@ -46,22 +64,27 @@ const eventToBuild = (data: any) => {
     return JSON.parse(Buffer.from(data, 'base64').toString());
 }
 
-const createTelegramMessage = (build: any) => {
+const createTelegramMessage = (build: any): { text: string; color: string; } => {
     switch (build.status) {
       case BUILD_STATUS.SUCCESS:
-        return "deployed.";
+        return {
+          text: "Build Completed",
+          color: "#4cbbb9"
+        };
+
       case BUILD_STATUS.FAILURE:
-        return "build failure.";
-      case BUILD_STATUS.INTERNAL_ERROR:
-        return "build has failed. Internal error.";
-      case BUILD_STATUS.QUEUED:
-        return "build has been enqueued." ;
-      case BUILD_STATUS.WORKING:
-        return "build is in progress." ;
-      case BUILD_STATUS.TIMEOUT:
-        return "build took too long, the build has failed.";
+        return {
+          text: "Build Failed",
+          color: "ff6363"
+        };
       case BUILD_STATUS.CANCELLED:
-        return "build has been cancelled.";
-    }
-    return "Something is strange baby.";
+        return {
+          text: "Build Cancelled",
+          color: "#dbdbdb"
+        };
+      default:
+        return {
+          text: "Sumtinwong",
+          color: "#FFFFFF"
+        };    }
 }
