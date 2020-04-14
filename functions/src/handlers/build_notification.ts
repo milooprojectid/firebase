@@ -1,4 +1,3 @@
-import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import * as humanizeDuration from 'humanize-duration';
 import * as moment from 'moment';
@@ -19,42 +18,24 @@ const ELIGIBLE_STATUS = [ BUILD_STATUS.SUCCESS, BUILD_STATUS.CANCELLED, BUILD_ST
 export const cloudBuildNotification = functions.region('asia-east2').pubsub.topic('cloud-builds').onPublish(async (pubSubEvent, context) => {
     const build = eventToBuild(pubSubEvent.data);
 
-    if (ELIGIBLE_STATUS.includes(build.status)){
-      const db = admin.firestore();
-
-      const configs = await db.collection('configurations').doc('builds');
-      const buildConfig = await configs.get().then(doc => doc.exists ? doc.data() : null);
-      if (!buildConfig) return;
-    
+    if (ELIGIBLE_STATUS.includes(build.status)){    
       const duration = moment(build.finishTime).diff(moment(build.startTime));
 
       const message = createTelegramMessage(build);
       const buildTime = humanizeDuration(duration);
+
       const repoName = build.substitutions.REPO_NAME;
       const logLink = build.logUrl;
-      
-      const WebHookUrl = buildConfig.slackWebhook;
 
+      const WebHookUrl = String(process.env.TOKEN_SLACK);
       await axios.default.post(WebHookUrl, {
         fallback: "-",
         text: message.text,
         color: message.color,
         fields: [
-          {
-            title: "Repository",
-            value: repoName,
-            "short": false
-          },
-          {
-            title: "Build Time",
-            value: buildTime,
-            short: false
-          },
-          {
-            title: "Log Detail",
-            value: logLink,
-            short: false
-          }
+          { title: "Repository", value: repoName, short: false },
+          { title: "Build Time", value: buildTime, short: false },
+          { title: "Log Detail", value: logLink, short: false }
         ]
       })
     }
