@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as humanizeDuration from 'humanize-duration';
 import * as moment from 'moment';
-import * as axios from 'axios';
+import axios from 'axios';
 
 const BUILD_STATUS = {
   SUCCESS: 'SUCCESS',
@@ -28,7 +28,7 @@ export const cloudBuildNotification = functions.region('asia-east2').pubsub.topi
       const logLink = build.logUrl;
 
       const WebHookUrl = String(process.env.TOKEN_SLACK);
-      await axios.default.post(WebHookUrl, {
+      const payload = {
         fallback: "-",
         text: message.text,
         color: message.color,
@@ -37,7 +37,9 @@ export const cloudBuildNotification = functions.region('asia-east2').pubsub.topi
           { title: "Build Time", value: buildTime, short: false },
           { title: "Log Detail", value: logLink, short: false }
         ]
-      })
+      }
+
+      await axios.post(WebHookUrl, payload);
     }
 });
 
@@ -67,5 +69,6 @@ const createTelegramMessage = (build: any): { text: string; color: string; } => 
         return {
           text: "Sumtinwong",
           color: "#FFFFFF"
-        };    }
+        };    
+      }
 }
